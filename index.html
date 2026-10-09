@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillSwap — Share What You Know. Learn What You Love.</title>
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.3s ease-in-out forwards; }
+        body { background-color: #090d16; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-slate-950">
+
+    <!-- APP ROOT -->
+    <div id="app" class="flex-grow flex flex-col"></div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- MOCK DATABASE & STATE ---
+        const State = {
+            currentView: 'dashboard', 
+            selectedSkill: null, 
+            currentUser: JSON.parse(localStorage.getItem('ss_user')) || { id: 'u_me', name: 'Zuheb', email: 'zuheb@example.com', bio: 'Developer exploring new skills.', location: 'India', teach: ['JavaScript', 'Java'], learn: ['Design', 'Python'] },
+            users: JSON.parse(localStorage.getItem('ss_users')) || [
+                { id: 'u1', name: 'Elena Vance', email: 'elena@example.com', bio: 'Senior UI/UX Designer looking to learn backend coding and Java.', location: 'San Francisco, CA', teach: ['UI/UX Design', 'Figma'], learn: ['Java', 'JavaScript'] },
+                { id: 'u2', name: 'Marcus Chen', email: 'marcus@example.com', bio: 'Full-stack software engineer expert in Java and Spring Boot.', location: 'New York, NY', teach: ['Java', 'Spring Boot', 'Python'], learn: ['Video Editing'] },
+                { id: 'u3', name: 'Aaliyah Patel', email: 'aaliyah@example.com', bio: 'Professional photographer exploring modern software development.', location: 'London, UK', teach: ['Photography', 'Lightroom'], learn: ['Java'] }
+            ],
+            messages: JSON.parse(localStorage.getItem('ss_messages')) || [
+                { id: 'm1', senderName: 'Marcus Chen', text: 'Hey Zuheb! Saw you wanted to master Java. I can help you with OOPs and Spring Boot!', time: '11:20 AM' }
+            ],
+            sessions: JSON.parse(localStorage.getItem('ss_sessions')) || [
+                { id: 's1', partnerName: 'Marcus Chen', skill: 'Java Advanced Concepts', date: '2026-10-18', time: '16:00', status: 'Confirmed' }
+            ]
+        };
+
+        const SkillDatabase = {
+            "Java": {
+                title: "Java Programming Language",
+                category: "Backend Development",
+                description: "Java ek powerful, object-oriented, aur platform-independent programming language hai jo enterprise apps, Android apps, aur cloud systems banane ke liye use hoti hai.",
+                roadmap: [
+                    "1. Basics: Syntax, Variables, Data Types, Control Flow",
+                    "2. OOPs Concepts: Classes, Objects, Inheritance, Polymorphism",
+                    "3. Advanced Java: Collections Framework, Exception Handling, Multithreading",
+                    "4. Frameworks: Spring Boot, Hibernate / JPA for Enterprise Apps"
+                ],
+                popularProjects: ["E-commerce Backend", "Banking Management System", "Android Mobile Application"]
+            },
+            "JavaScript": {
+                title: "JavaScript (JS)",
+                category: "Web Development",
+                description: "JavaScript web ki language hai jo websites ko interactive aur dynamic banati hai.",
+                roadmap: [
+                    "1. Basics: ES6+, DOM Manipulation, Events",
+                    "2. Asynchronous JS: Promises, Async/Await, Fetch API",
+                    "3. Frameworks: React.js, Node.js, Express"
+                ],
+                popularProjects: ["Interactive Dashboard", "Chat Application", "E-commerce Storefront"]
+            },
+            "Design": {
+                title: "UI/UX & Graphic Design",
+                category: "Creative",
+                description: "User Interface (UI) aur User Experience (UX) design digital products ko user-friendly banata hai.",
+                roadmap: [
+                    "1. Design Principles: Color theory, Typography, Layouts",
+                    "2. Tools: Figma, Adobe XD, Photoshop",
+                    "3. UX Research: Wireframing, User Testing, Prototyping"
+                ],
+                popularProjects: ["Mobile App UI Design", "SaaS Website Redesign", "Brand Identity System"]
+            }
+        };
+
+        function persist() {
+            localStorage.setItem('ss_user', JSON.stringify(State.currentUser));
+            localStorage.setItem('ss_users', JSON.stringify(State.users));
+        }
+
+        function switchView(view, skillName = null) {
+            State.currentView = view;
+            if (skillName) State.selectedSkill = skillName;
+            render();
+            window.scrollTo(0, 0);
+        }
+
+        // --- RENDER CONTROLLER ---
+        function render() {
+            const root = document.getElementById('app');
+            root.innerHTML = `
+                ${renderNavbar()}
+                <main class="flex-grow flex flex-col fade-in">
+                    ${getStateView()}
+                </main>
+                ${renderFooter()}
+            `;
+        }
+
+        function getStateView() {
+            if (State.currentView === 'skillDetail') return renderSkillDetailView();
+            
+            switch(State.currentView) {
+                case 'dashboard': return renderDashboardView();
+                case 'matches': return renderMatchesView();
+                case 'messages': return renderMessagesView();
+                case 'sessions': return renderSessionsView();
+                case 'profile': return renderProfileView();
+                default: return renderDashboardView();
+            }
+        }
+
+        // --- COMPONENTS ---
+        function renderNavbar() {
+            return `
+                <header class="sticky top-0 z-50 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('dashboard')">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg">
+                                <i class="fa-solid fa-rotate"></i>
+                            </div>
+                            <div>
+                                <span class="text-xl font-extrabold tracking-tight text-white">Skill<span class="text-emerald-400">Swap</span></span>
+                                <span class="block text-[10px] text-purple-400 font-semibold uppercase tracking-widest">P2P Learning</span>
+                            </div>
+                        </div>
+
+                        <nav class="hidden md:flex items-center space-x-6 text-sm font-medium">
+                            <button onclick="switchView('dashboard')" class="transition ${State.currentView === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-emerald-400'}">Dashboard</button>
+                            <button onclick="switchView('matches')" class="transition ${State.currentView === 'matches' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-emerald-400'}">Find Matches</button>
+                            <button onclick="switchView('messages')" class="transition ${State.currentView === 'messages' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-emerald-400'}">Messages</button>
+                            <button onclick="switchView('sessions')" class="transition ${State.currentView === 'sessions' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-emerald-400'}">Sessions</button>
+                        </nav>
+
+                        <div class="flex items-center space-x-3">
+                            <button onclick="switchView('profile')" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 hover:border-emerald-500/50 transition">
+                                <div class="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center font-bold text-xs text-white">
+                                    ${State.currentUser.name.charAt(0)}
+                                </div>
+                                <span class="text-sm font-medium text-slate-200">${State.currentUser.name}</span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        function renderDashboardView() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+                    <h1 class="text-3xl font-black text-white mb-2">Hello, ${State.currentUser.name} 👋</h1>
+                    <p class="text-slate-400 mb-8">Click on any skill below to view complete details, roadmap, and expert peers.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                            <h3 class="text-slate-400 text-sm font-semibold mb-3">Skills You Teach (Click to inspect)</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${State.currentUser.teach.map(skill => `
+                                    <button onclick="switchView('skillDetail', '${skill}')" class="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold rounded-xl hover:bg-emerald-500 hover:text-slate-950 transition">
+                                        ${skill} 🚀
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                            <h3 class="text-slate-400 text-sm font-semibold mb-3">Skills You Want to Learn (Click to inspect)</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${State.currentUser.learn.map(skill => `
+                                    <button onclick="switchView('skillDetail', '${skill}')" class="px-4 py-2 bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold rounded-xl hover:bg-purple-500 hover:text-white transition">
+                                        ${skill} 📚
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSkillDetailView() {
+            const skillName = State.selectedSkill || "Java";
+            const info = SkillDatabase[skillName] || {
+                title: skillName,
+                category: "General Skill",
+                description: `${skillName} ek mahatvapurna skill hai jise aap sikh sakte hain ya doosron ko sikha sakte hain.`,
+                roadmap: ["1. Basic Fundamentals", "2. Intermediate Practical", "3. Master Projects"],
+                popularProjects: ["Real-world Application"]
+            };
+
+            const relatedPeers = State.users.filter(u => u.teach.includes(skillName) || u.learn.includes(skillName));
+
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-10 w-full">
+                    <button onclick="switchView('dashboard')" class="text-xs text-slate-400 hover:text-emerald-400 mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                    </button>
+                    
+                    <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl mb-8">
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${info.category}</span>
+                        <h1 class="text-3xl sm:text-4xl font-black text-white mt-3 mb-4">${info.title}</h1>
+                        <p class="text-slate-300 text-base leading-relaxed mb-6">${info.description}</p>
+                        
+                        <h3 class="text-lg font-bold text-white mb-3">📌 Learning Roadmap</h3>
+                        <ul class="space-y-2 mb-6">
+                            ${info.roadmap.map(step => `<li class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-sm text-slate-300">${step}</li>`).join('')}
+                        </ul>
+
+                        <h3 class="text-lg font-bold text-white mb-3">🛠️ Popular Projects</h3>
+                        <div class="flex flex-wrap gap-2">
+                            ${info.popularProjects.map(p => `<span class="px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold rounded-lg">${p}</span>`).join('')}
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-bold text-white mb-4">👥 Peers matching "${skillName}"</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${relatedPeers.length > 0 ? relatedPeers.map(u => `
+                            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-bold text-white">${u.name}</h4>
+                                    <p class="text-xs text-purple-400 mt-0.5">${u.location}</p>
+                                    <p class="text-xs text-slate-300 mt-2">${u.bio}</p>
+                                </div>
+                                <button onclick="alert('Connection request sent to ${u.name} for${skillName}!')" class="mt-4 w-full py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-emerald-400 transition">Connect & Swap</button>
+                            </div>
+                        `).join('') : '<p class="text-slate-400 text-sm">No peers found right now for this specific skill.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMatchesView() {
+            return `
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+                    <h1 class="text-3xl font-black text-white mb-2">Discover Peer Matches</h1>
+                    <p class="text-slate-400 mb-8">Find users matching your learning interests.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${State.users.map(u => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">${u.name}</h3>
+                                    <p class="text-xs text-purple-400 mt-1">${u.location}</p>
+                                    <p class="text-sm text-slate-300 mt-3">${u.bio}</p>
+                                </div>
+                                <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+                                    <span class="text-xs text-emerald-400 font-semibold">Teaches: ${u.teach.join(', ')}</span>
+                                    <button onclick="alert('Connection request sent to ${u.name}!')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-emerald-400">Connect</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMessagesView() {
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-10 w-full">
+                    <h1 class="text-3xl font-black text-white mb-2">Messages</h1>
+                    <p class="text-slate-400 mb-6">Chat with your peer learning partners.</p>
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                        ${State.messages.map(m => `
+                            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                    <span class="font-bold text-emerald-400">${m.senderName}</span>
+                                    <span>${m.time}</span>
+                                </div>
+                                <p class="text-sm text-slate-200">${m.text}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSessionsView() {
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-10 w-full">
+                    <h1 class="text-3xl font-black text-white mb-2">Scheduled Sessions</h1>
+                    <p class="text-slate-400 mb-6">Your upcoming skill swap meetings.</p>
+                    <div class="grid grid-cols-1 gap-4">
+                        ${State.sessions.map(s => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex justify-between items-center">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">${s.skill}</h3>
+                                    <p class="text-sm text-slate-400 mt-1">Partner: <span class="text-emerald-400 font-semibold">${s.partnerName}</span></p>
+                                    <p class="text-xs text-purple-400 mt-1">📅 ${s.date} at${s.time}</p>
+                                </div>
+                                <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold rounded-full">${s.status}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProfileView() {
+            return `
+                <div class="max-w-xl mx-auto px-4 py-10 w-full">
+                    <h1 class="text-3xl font-black text-white mb-2">Your Profile</h1>
+                    <p class="text-slate-400 mb-6">Manage your skill exchange details.</p>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Name</label>
+                            <input type="text" id="profName" value="${State.currentUser.name}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Skills You Teach (comma separated)</label>
+                            <input type="text" id="profTeach" value="${State.currentUser.teach.join(', ')}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Skills You Want to Learn</label>
+                            <input type="text" id="profLearn" value="${State.currentUser.learn.join(', ')}" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white outline-none">
+                        </div>
+                        <button onclick="updateProfile()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition">Save Changes</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateProfile() {
+            State.currentUser.name = document.getElementById('profName').value;
+            State.currentUser.teach = document.getElementById('profTeach').value.split(',').map(s => s.trim());
+            State.currentUser.learn = document.getElementById('profLearn').value.split(',').map(s => s.trim());
+            persist();
+            alert('Profile updated successfully!');
+            switchView('dashboard');
+        }
+
+        function renderFooter() {
+            return `
+                <footer class="border-t border-slate-800 py-8 text-center text-slate-500 text-sm mt-auto">
+                    <p>&copy; 2026 SkillSwap. All rights reserved.</p>
+                </footer>
+            `;
+        }
+
+        // Initialize App
+        render();
+    </script>
+</body>
+</html>
